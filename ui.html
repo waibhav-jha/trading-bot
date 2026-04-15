@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Binance Futures Testnet · Trading Bot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #0d0f12;
+    --panel:     #13161b;
+    --border:    #1e2229;
+    --border2:   #252b35;
+    --text:      #c8cdd6;
+    --muted:     #4a5260;
+    --label:     #6b7585;
+    --accent:    #f0b429;
+    --buy:       #00c896;
+    --sell:      #ff4d6a;
+    --info:      #4da6ff;
+    --input-bg:  #0a0c0f;
+    --radius:    4px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Top bar ─────────────────────────────────────────────────── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 48px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .logo {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--muted); font-weight: 300; }
+  .badge {
+    background: #1a1f28;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.06em;
+  }
+  .badge.testnet { color: var(--accent); border-color: #3a2e10; background: #1a1500; }
+  .clock { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── Layout ──────────────────────────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Panel shared styles ─────────────────────────────────────── */
+  .panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--label);
+    font-weight: 600;
+  }
+  .panel-subtitle { font-size: 10px; color: var(--muted); }
+
+  /* ── Order form ──────────────────────────────────────────────── */
+  .form-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 9px 12px;
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  input.error { border-color: var(--sell) !important; }
+  .field-hint {
+    font-size: 10px;
+    color: var(--sell);
+    display: none;
+    margin-top: 2px;
+  }
+  .field-hint.visible { display: block; }
+
+  /* side toggle */
+  .side-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .side-btn {
+    padding: 9px 0;
+    text-align: center;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    background: var(--input-bg);
+    border: none;
+    transition: background 0.15s, color 0.15s;
+  }
+  .side-btn.buy.active  { background: #00c89622; color: var(--buy); }
+  .side-btn.sell.active { background: #ff4d6a22; color: var(--sell); }
+  .side-btn:hover { opacity: 0.85; }
+
+  /* type pills */
+  .type-pills {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .type-pill {
+    padding: 7px 0;
+    text-align: center;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    background: var(--input-bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    transition: all 0.12s;
+  }
+  .type-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #1a1500;
+  }
+  .type-pill:hover { border-color: var(--border2); color: var(--text); }
+  .type-pill.active:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* conditional fields */
+  .conditional { display: none; }
+  .conditional.show { display: flex; flex-direction: column; gap: 6px; }
+
+  /* order type description */
+  .type-desc {
+    padding: 8px 10px;
+    background: #0f1218;
+    border-left: 2px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 11px;
+    color: var(--label);
+    line-height: 1.5;
+    display: none;
+  }
+  .type-desc.show { display: block; }
+
+  /* submit button */
+  .btn-submit {
+    margin-top: 4px;
+    width: 100%;
+    padding: 11px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-submit:active { transform: scale(0.99); }
+  .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-submit.buy  { background: var(--buy);  color: #001a11; }
+  .btn-submit.sell { background: var(--sell); color: #1a0009; }
+
+  /* summary box */
+  .summary-box {
+    background: #0a0c0f;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px;
+    display: none;
+  }
+  .summary-box.show { display: block; }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 11px;
+  }
+  .summary-row .k { color: var(--muted); }
+  .summary-row .v { color: var(--text); font-weight: 500; }
+  .summary-row .v.buy  { color: var(--buy); }
+  .summary-row .v.sell { color: var(--sell); }
+
+  /* ── Log panel ───────────────────────────────────────────────── */
+  .log-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .log-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .log-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 8px;
+    color: var(--muted);
+  }
+  .log-empty .icon { font-size: 28px; opacity: 0.3; }
+  .log-empty p { font-size: 11px; text-align: center; line-height: 1.6; }
+
+  /* log entry card */
+  .log-entry {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .log-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: #0f1218;
+  }
+  .log-entry-header .left { display: flex; align-items: center; gap: 8px; }
+  .log-entry-header .symbol {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .log-status {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+  .log-status.FILLED  { background: #00c89620; color: var(--buy);  border: 1px solid #00c89640; }
+  .log-status.NEW     { background: #4da6ff20; color: var(--info); border: 1px solid #4da6ff40; }
+  .log-status.ERROR   { background: #ff4d6a20; color: var(--sell); border: 1px solid #ff4d6a40; }
+  .log-status.PENDING { background: #f0b42920; color: var(--accent); border: 1px solid #f0b42940; }
+  .log-time { font-size: 10px; color: var(--muted); }
+
+  .log-entry-body {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    padding: 10px 14px;
+  }
+  .log-field { display: flex; flex-direction: column; gap: 3px; }
+  .log-field .lk { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .log-field .lv { font-size: 12px; font-weight: 500; }
+  .log-field .lv.buy  { color: var(--buy); }
+  .log-field .lv.sell { color: var(--sell); }
+  .log-field .lv.id   { color: var(--info); font-size: 10px; }
+
+  .log-error-msg {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--sell);
+    border-top: 1px solid var(--border);
+    background: #1a0009;
+  }
+
+  /* loading overlay */
+  .btn-submit .spinner {
+    display: none;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: rgba(0,0,0,0.8);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  .btn-submit.loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">Trading Bot <span>·</span> Binance Futures</div>
+    <div class="badge testnet">TESTNET</div>
+    <div class="badge">USDT-M</div>
+  </div>
+  <div class="clock" id="clock">--:--:-- UTC</div>
+</div>
+
+<div class="main">
+
+  <!-- ── Left: order form ──────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Place Order</span>
+      <span class="panel-subtitle" id="form-status">ready</span>
+    </div>
+
+    <div class="form-body">
+
+      <!-- API config -->
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="Testnet API key">
+      </div>
+      <div class="field">
+        <label>API Secret</label>
+        <input type="password" id="apiSecret" placeholder="Testnet API secret">
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:0 -20px;"></div>
+
+      <!-- Symbol -->
+      <div class="field">
+        <label>Symbol</label>
+        <input type="text" id="symbol" placeholder="BTCUSDT" maxlength="20"
+               oninput="this.value=this.value.toUpperCase(); updateSummary()">
+        <div class="field-hint" id="hint-symbol">Enter a valid symbol (letters only)</div>
+      </div>
+
+      <!-- Side -->
+      <div class="field">
+        <label>Side</label>
+        <div class="side-toggle">
+          <button class="side-btn buy active" onclick="setSide('BUY')">BUY</button>
+          <button class="side-btn sell"       onclick="setSide('SELL')">SELL</button>
+        </div>
+      </div>
+
+      <!-- Order type -->
+      <div class="field">
+        <label>Order Type</label>
+        <div class="type-pills">
+          <div class="type-pill active" onclick="setType('MARKET')">MARKET</div>
+          <div class="type-pill"        onclick="setType('LIMIT')">LIMIT</div>
+          <div class="type-pill"        onclick="setType('STOP_MARKET')">STOP_MARKET</div>
+          <div class="type-pill"        onclick="setType('STOP')">STOP-LIMIT</div>
+        </div>
+        <div class="type-desc show" id="type-desc">
+          Executes immediately at the best available market price.
+        </div>
+      </div>
+
+      <!-- Quantity -->
+      <div class="field">
+        <label>Quantity</label>
+        <input type="number" id="quantity" placeholder="0.001" step="any" min="0"
+               oninput="updateSummary()">
+        <div class="field-hint" id="hint-quantity">Must be a positive number</div>
+      </div>
+
+      <!-- Limit price (LIMIT + STOP) -->
+      <div class="field conditional" id="field-price">
+        <label>Limit Price <span style="color:var(--muted)">USDT</span></label>
+        <input type="number" id="price" placeholder="0.00" step="any" min="0"
+               oninput="updateSummary()">
+        <div class="field-hint" id="hint-price">Must be a positive number</div>
+      </div>
+
+      <!-- Stop price (STOP_MARKET + STOP) -->
+      <div class="field conditional" id="field-stop-price">
+        <label>Stop Price <span style="color:var(--muted)">USDT</span></label>
+        <input type="number" id="stopPrice" placeholder="0.00" step="any" min="0"
+               oninput="updateSummary()">
+        <div class="field-hint" id="hint-stop-price">Must be a positive number</div>
+      </div>
+
+      <!-- Order summary -->
+      <div class="summary-box" id="summary-box">
+        <div class="summary-row"><span class="k">Symbol</span>   <span class="v" id="s-symbol">—</span></div>
+        <div class="summary-row"><span class="k">Side</span>     <span class="v" id="s-side">—</span></div>
+        <div class="summary-row"><span class="k">Type</span>     <span class="v" id="s-type">—</span></div>
+        <div class="summary-row"><span class="k">Quantity</span> <span class="v" id="s-qty">—</span></div>
+        <div class="summary-row" id="s-row-price" style="display:none">
+          <span class="k">Limit Price</span><span class="v" id="s-price">—</span>
+        </div>
+        <div class="summary-row" id="s-row-stop" style="display:none">
+          <span class="k">Stop Price</span><span class="v" id="s-stop">—</span>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button class="btn-submit buy" id="btn-submit" onclick="placeOrder()">
+        <span class="spinner"></span>
+        <span id="btn-label">PLACE BUY ORDER</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ── Right: order log ──────────────────────────────────────── -->
+  <div class="log-panel">
+    <div class="panel-header">
+      <span class="panel-title">Order History</span>
+      <span class="panel-subtitle" id="order-count">0 orders this session</span>
+    </div>
+    <div class="log-body" id="log-body">
+      <div class="log-empty" id="log-empty">
+        <div class="icon">◈</div>
+        <p>No orders placed yet.<br>Use the form to submit your first order.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let side       = 'BUY';
+let orderType  = 'MARKET';
+let orderCount = 0;
+
+const TYPE_DESCS = {
+  MARKET:      'Executes immediately at the best available market price.',
+  LIMIT:       'Places a resting order that fills at your specified price or better.',
+  STOP_MARKET: 'Triggers a market order when the price reaches the stop level.',
+  STOP:        'Triggers a limit order when the price hits the stop level. Requires both a stop price and a limit fill price.',
+};
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toUTCString().split(' ').slice(4, 5)[0] + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Side toggle ───────────────────────────────────────────────────────────────
+function setSide(s) {
+  side = s;
+  document.querySelectorAll('.side-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.side-btn.${s.toLowerCase()}`).classList.add('active');
+  const btn = document.getElementById('btn-submit');
+  btn.className = `btn-submit ${s.toLowerCase()}`;
+  document.getElementById('btn-label').textContent = `PLACE ${s} ORDER`;
+  updateSummary();
+}
+
+// ── Order type ────────────────────────────────────────────────────────────────
+function setType(t) {
+  orderType = t;
+  document.querySelectorAll('.type-pill').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+
+  // show/hide conditional fields
+  const showPrice     = ['LIMIT', 'STOP'].includes(t);
+  const showStopPrice = ['STOP_MARKET', 'STOP'].includes(t);
+
+  document.getElementById('field-price').classList.toggle('show', showPrice);
+  document.getElementById('field-stop-price').classList.toggle('show', showStopPrice);
+
+  // update description
+  const desc = document.getElementById('type-desc');
+  desc.textContent = TYPE_DESCS[t];
+  desc.classList.add('show');
+
+  updateSummary();
+}
+
+// ── Live summary ──────────────────────────────────────────────────────────────
+function updateSummary() {
+  const sym = document.getElementById('symbol').value.trim();
+  const qty = document.getElementById('quantity').value.trim();
+  const box = document.getElementById('summary-box');
+
+  if (!sym && !qty) { box.classList.remove('show'); return; }
+  box.classList.add('show');
+
+  document.getElementById('s-symbol').textContent = sym || '—';
+  const sideEl = document.getElementById('s-side');
+  sideEl.textContent = side;
+  sideEl.className   = `v ${side.toLowerCase()}`;
+  document.getElementById('s-type').textContent   = orderType;
+  document.getElementById('s-qty').textContent    = qty || '—';
+
+  const showPrice = ['LIMIT', 'STOP'].includes(orderType);
+  const showStop  = ['STOP_MARKET', 'STOP'].includes(orderType);
+
+  document.getElementById('s-row-price').style.display = showPrice ? 'flex' : 'none';
+  document.getElementById('s-row-stop').style.display  = showStop  ? 'flex' : 'none';
+
+  if (showPrice) document.getElementById('s-price').textContent =
+    document.getElementById('price').value || '—';
+  if (showStop)  document.getElementById('s-stop').textContent  =
+    document.getElementById('stopPrice').value || '—';
+}
+
+// ── Validation ────────────────────────────────────────────────────────────────
+function clearErrors() {
+  document.querySelectorAll('input').forEach(i => i.classList.remove('error'));
+  document.querySelectorAll('.field-hint').forEach(h => h.classList.remove('visible'));
+}
+
+function showError(inputId, hintId) {
+  document.getElementById(inputId).classList.add('error');
+  document.getElementById(hintId).classList.add('visible');
+}
+
+function validateForm() {
+  clearErrors();
+  let ok = true;
+
+  const apiKey    = document.getElementById('apiKey').value.trim();
+  const apiSecret = document.getElementById('apiSecret').value.trim();
+  const symbol    = document.getElementById('symbol').value.trim();
+  const qty       = parseFloat(document.getElementById('quantity').value);
+
+  if (!symbol || !/^[A-Z]+$/.test(symbol)) { showError('symbol', 'hint-symbol'); ok = false; }
+  if (!qty || qty <= 0)                      { showError('quantity', 'hint-quantity'); ok = false; }
+
+  if (['LIMIT', 'STOP'].includes(orderType)) {
+    const p = parseFloat(document.getElementById('price').value);
+    if (!p || p <= 0) { showError('price', 'hint-price'); ok = false; }
+  }
+  if (['STOP_MARKET', 'STOP'].includes(orderType)) {
+    const sp = parseFloat(document.getElementById('stopPrice').value);
+    if (!sp || sp <= 0) { showError('stopPrice', 'hint-stop-price'); ok = false; }
+  }
+
+  return { ok, apiKey, apiSecret };
+}
+
+// ── HMAC-SHA256 signing (Web Crypto API) ──────────────────────────────────────
+async function sign(message, secret) {
+  const enc     = new TextEncoder();
+  const key     = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sigBuf  = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Place order ───────────────────────────────────────────────────────────────
+async function placeOrder() {
+  const { ok, apiKey, apiSecret } = validateForm();
+  if (!ok) return;
+
+  if (!apiKey || !apiSecret) {
+    alert('Please enter your Testnet API Key and Secret at the top of the form.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  document.getElementById('btn-label').textContent = 'Submitting…';
+  document.getElementById('form-status').textContent = 'sending…';
+
+  const symbol   = document.getElementById('symbol').value.trim();
+  const quantity = document.getElementById('quantity').value.trim();
+  const price    = document.getElementById('price').value.trim();
+  const stopPx   = document.getElementById('stopPrice').value.trim();
+  const ts       = Date.now();
+
+  let isAlgo = ['STOP', 'STOP_MARKET', 'TAKE_PROFIT', 'TAKE_PROFIT_MARKET', 'TRAILING_STOP_MARKET'].includes(orderType);
+  let endpointUrl = isAlgo ? '/proxy/https://testnet.binancefuture.com/fapi/v1/algoOrder' : '/proxy/https://testnet.binancefuture.com/fapi/v1/order';
+
+  // Build param string for signing
+  let params = `symbol=${symbol}&side=${side}&type=${orderType}&quantity=${quantity}&timestamp=${ts}&recvWindow=5000`;
+  if (isAlgo) params += `&algoType=CONDITIONAL`;
+                                                                              
+  if (['LIMIT', 'STOP'].includes(orderType) && price)  params += `&price=${price}&timeInForce=GTC`;
+  if (['STOP_MARKET', 'STOP'].includes(orderType) && stopPx) params += (isAlgo ? `&triggerPrice=${stopPx}` : `&stopPrice=${stopPx}`);
+  if (orderType === 'STOP_MARKET') params += `&closePosition=false`;
+
+  const signature = await sign(params, apiSecret);
+  const body      = params + `&signature=${signature}`;
+
+  const startTime = new Date();
+
+  try {
+    const resp = await fetch(endpointUrl, {
+      method:  'POST',
+      headers: {
+        'X-MBX-APIKEY': apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok || (data.code && data.code < 0)) {
+      appendLog({
+        status: 'ERROR',
+        symbol, side, orderType, quantity,
+        price: price || null, stopPrice: stopPx || null,
+        time: startTime,
+        error: data.msg || `HTTP ${resp.status}`,
+      });
+    } else {
+      appendLog({
+        status:    data.status || data.algoStatus || 'NEW',
+        symbol:    data.symbol,
+        side:      data.side,
+        orderType: data.type || data.orderType,
+        orderId:   data.orderId || data.algoId,
+        quantity:  data.origQty || data.quantity,
+        execQty:   data.executedQty,
+        avgPrice:  data.avgPrice,
+        price:     data.price,
+        stopPrice: data.stopPrice || data.triggerPrice,
+        time:      startTime,
+      });
+    }
+  } catch (err) {
+    appendLog({
+      status: 'ERROR', symbol, side, orderType, quantity,
+      price: price || null, stopPrice: stopPx || null,
+      time: startTime,
+      error: err.message || 'Network error',
+    });
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    document.getElementById('btn-label').textContent = `PLACE ${side} ORDER`;
+    document.getElementById('form-status').textContent = 'ready';
+  }
+}
+
+// ── Append log entry ──────────────────────────────────────────────────────────
+function appendLog(entry) {
+  orderCount++;
+  document.getElementById('order-count').textContent =
+    `${orderCount} order${orderCount !== 1 ? 's' : ''} this session`;
+
+  document.getElementById('log-empty').style.display = 'none';
+
+  const timeStr = entry.time.toISOString().replace('T', ' ').split('.')[0] + ' UTC';
+  const isError = entry.status === 'ERROR';
+
+  const card = document.createElement('div');
+  card.className = 'log-entry';
+
+  card.innerHTML = `
+    <div class="log-entry-header">
+      <div class="left">
+        <span class="log-status ${entry.status}">${entry.status}</span>
+        <span class="symbol" style="color:${entry.side === 'BUY' ? 'var(--buy)' : 'var(--sell)'}">${entry.symbol}</span>
+        <span style="color:var(--muted);font-size:11px">${entry.orderType}</span>
+      </div>
+      <span class="log-time">${timeStr}</span>
+    </div>
+    ${!isError ? `
+    <div class="log-entry-body">
+      <div class="log-field">
+        <span class="lk">Side</span>
+        <span class="lv ${entry.side.toLowerCase()}">${entry.side}</span>
+      </div>
+      <div class="log-field">
+        <span class="lk">Orig Qty</span>
+        <span class="lv">${entry.quantity}</span>
+      </div>
+      <div class="log-field">
+        <span class="lk">Exec Qty</span>
+        <span class="lv">${entry.execQty || '0'}</span>
+      </div>
+      <div class="log-field">
+        <span class="lk">Avg Price</span>
+        <span class="lv">${parseFloat(entry.avgPrice) > 0 ? parseFloat(entry.avgPrice).toFixed(2) : '—'}</span>
+      </div>
+      ${entry.orderId ? `
+      <div class="log-field" style="grid-column:1/-1;margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+        <span class="lk">Order ID</span>
+        <span class="lv id">${entry.orderId}</span>
+      </div>` : ''}
+    </div>` : `
+    <div class="log-error-msg">✗ ${entry.error}</div>
+    `}
+  `;
+
+  const logBody = document.getElementById('log-body');
+  logBody.insertBefore(card, logBody.firstChild);
+}
+</script>
+</body>
+</html>
